@@ -1,9 +1,7 @@
-# Exclude reports only; CAD, images, videos, source code, and ANSYS files remain eligible for version control.
-**/reports/
-**/report/
-**/*보고서*
-**/*[Rr]eport*
-
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc

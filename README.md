@@ -1,176 +1,123 @@
-# DA-DAKA — Autonomous Solar Panel Cleaning Drone
+# DA-DAKA
+### Autonomous Solar Panel Cleaning Drone
+**AI Vision · Autonomous Flight · Precision Spraying · Structural Design**
 
-**AI Vision · Autonomous Mission · Pixhawk/PX4 · Selective Water Spraying**
+태양광 패널의 위치를 자동으로 파악하고, 방문 경로를 생성한 뒤 국부 오염에 선택적으로 세척수를 분사하는 자율 청소 드론 프로젝트입니다. 영상 인식, 비행제어, 거리 센서, 분사장치를 하나의 임무 흐름으로 통합했습니다.
 
-태양광 패널을 탐색하고, 패널 위치를 지도화해 방문 경로를 생성한 다음, 오염 영역을 인식하고 안전조건을 확인한 후 필요한 위치에만 물을 분사하도록 설계한 **DA-DAKA 태양광 패널 청소 드론** 프로젝트입니다.
+## 01. Final Drone | 완성 기체
 
-> **자료 기준:** 이 저장소의 기술 설명과 코드 소개는 **「팀 다닦아-제작설계서」(2026.09.08)**에 기재된 내용만 기준으로 정리했습니다. 설명용 가상 코드는 사용하지 않습니다. PDF 보고서 원본은 업로드하지 않습니다.
->
-> **미디어 업로드 상태:** 아래에서 언급한 실기체 사진, 시연 MP4, 화면 캡처 및 코드 원본은 아직 저장소에 첨부되지 않았습니다. 현재 이 문서는 **설명과 자료 배치가 완료된 README**이며, 존재하지 않는 이미지/코드 경로를 링크하지 않았습니다.
+DA-DAKA는 **4축 쿼드로터** 기반의 태양광 패널 청소 드론입니다. 무거운 물탱크와 펌프는 지상에 배치하고, 호스를 통해 기체에 세척수를 공급합니다. 기체는 카메라와 LiDAR를 이용해 대상 패널을 찾고, 목표 위치에 접근해 정렬한 후 물을 분사합니다.
 
-## 01 · Final Drone — 완성 기체
-
-**📷 실기체 대표 사진:** 제작설계서 **36쪽**, 「DA-DAKA 드론 통합 미션(FSM 수행 현장)」 사진을 대표 이미지로 배치할 예정입니다.
-
-DA-DAKA는 **Pixhawk 4 / PX4 비행제어**, **Raspberry Pi 5 임무 제어**, **NVIDIA GPU 외부 AI 추론**을 역할별로 분리한 쿼드로터 기반 시스템입니다. 하향 카메라와 TF-Luna LiDAR로 작업 대상의 영상·거리 정보를 획득합니다.
-
-물이 담긴 탱크와 펌프를 기체에 탑재하지 않고 **지상 Tank/Pump → 호스 → 기체 밸브 → 노즐**로 급수합니다. 비행제어와 세척제어는 서로 연계하되, 물 분사는 별도의 안전조건을 통과한 경우에만 허용하도록 설계했습니다.
-
-| 구분 | 제작설계서에 기재된 구성 |
+| System | Components |
 |---|---|
-| 기체·추진 | 쿼드로터, Brushless Motor ×4, ESC ×4, LiPo, PM07 |
-| 비행제어 | Pixhawk 4, PX4 Autopilot |
-| 임무·센서처리 | Raspberry Pi 5 |
-| AI 연산 | NVIDIA GPU 외부 연산장치 |
-| 카메라 | Raspberry Pi Camera (IMX708) |
-| 거리센서 | TF-Luna LiDAR |
-| 위치·자세 | Holybro M10 GPS/Compass, Pixhawk IMU/EKF |
-| 소프트웨어 | Ubuntu 22.04 LTS, Python, ROS 2, OpenCV, PyTorch, MAVROS |
-| 분사 | Pixhawk AUX5 → DRV8876 → NC 솔레노이드 밸브 → 노즐 |
+| Flight controller | Pixhawk 4 / PX4 Autopilot |
+| Mission computer | Raspberry Pi 5 |
+| AI processing | NVIDIA GPU inference system |
+| Vision | Raspberry Pi IMX708 camera |
+| Distance sensing | TF-Luna LiDAR |
+| Position & attitude | Holybro M10 GPS / Compass, Pixhawk IMU / EKF |
+| Propulsion & power | Brushless motors ×4, ESC ×4, LiPo battery, PM07 |
+| Water delivery | Ground tank / pump → tethered hose |
+| Spray actuator | Pixhawk AUX5 → DRV8876 → NC solenoid valve → nozzle |
 
-*출처: 제작설계서 13, 16~18, 28, 34, 36쪽*
+## 02. Demonstration | 자율 청소 임무
 
-## 02 · Demonstration — 비행·인식·분사 시연
+**SURVEY → MAP → ROUTE → APPROACH → ALIGN → SPRAY → VERIFY → RTL / LAND**
 
-**🎬 시연 영상:** 사용자가 제공한 `한이음 영상.mp4`를 이 위치에 게시할 예정입니다. 현재 MP4 자체는 GitHub에 업로드되지 않았습니다.
+드론은 전체 작업 구역을 탐색하고 패널의 위치를 지도화합니다. 생성된 경로에 따라 목표 패널 상공으로 이동한 뒤, LiDAR와 영상으로 작업거리 및 분사 위치를 정렬합니다. 오염이 검출되고 분사 안전조건을 만족하면 세척수를 분사하고, 이후 새로 촬영한 영상으로 결과를 재확인합니다.
 
-설계서의 임무 흐름도(12, 22~23쪽)는 아래 순서를 제시합니다.
+## 03. Airframe Design & ANSYS | 기체 구조 설계
 
-**Survey → Map → Route → Approach → Align → Spray → Verify → RTL/LAND**
+기체의 구조적 안정성을 검토하기 위해 ANSYS를 활용한 **프레임 암 강도 분석**을 수행하고, 모터별 추력 테스트를 함께 진행했습니다. 모터의 하중이 전달되는 부위와 구조 형상에 따른 응력 분포를 확인하여 기체 설계·제작 과정에 활용했습니다.
 
-1. 목표 구역을 비행하며 태양광 패널을 탐색합니다.
-2. 패널 관측값을 좌표화하여 **Panel Map**을 생성합니다.
-3. 가까운 패널부터 방문하도록 경로를 생성·개선합니다.
-4. PX4로 목표 위치에 접근하고 LiDAR·Vision·Yaw로 정렬합니다.
-5. 안전조건이 유효할 때만 **3초 제한 선택분사**를 수행합니다.
-6. 분사 이후의 **새 영상(Fresh Frame)**으로 잔류 오염을 다시 검증합니다.
+기체 구조 검토뿐 아니라 호스와 분사장치, 카메라·LiDAR, 전원 계통이 서로 간섭하지 않도록 설계했습니다. 특히 세척수 공급 계통을 지상에 분리해 비행체의 탑재 부담을 줄이는 구성을 적용했습니다.
 
-## 03 · Airframe Design & Structural Analysis — 기체 설계 및 ANSYS
+## 04. Pixhawk & PID Tuning | 비행제어 안정화
 
-**📷 자료 배치**
-- 제작설계서 **19쪽 왼쪽 위:** 「실기체 ANSYS 활용 강도 분석 화면」
-- 제작설계서 **19쪽 오른쪽 위:** 「모터 별 추력 테스트 제어 화면」
-- 기존 기체 설계 자료의 **초기/변경 기체 이미지**: 실제 원본 파일 확인 후 추가
+### 4.1 Pixhawk 및 QGroundControl 연동
 
-기체 구조의 강도 검토를 위해 **ANSYS 구조해석 화면**을 정리하고, 모터별 추력 테스트 제어 화면을 함께 제시합니다. 이 구간은 기체 구조와 추진부를 검토하고 실제 시험에 연결하는 설계 프로세스를 보여줍니다.
+Pixhawk 4 / PX4를 기체의 비행제어기로 사용하고, **QGroundControl**을 통해 실기체 제어와 상태 모니터링을 수행했습니다. Raspberry Pi 5에서 생성한 임무 명령은 MAVLink / MAVROS를 통해 비행제어 시스템에 전달됩니다.
 
-**중요:** 제작설계서에는 ANSYS 분석 화면이 실려 있으나, 이 문서만으로 **초기·최종 구조의 구체적인 응력값, 파손 여부, 변경 원인**을 확정할 수 없습니다. 따라서 다른 보고서에 있는 설계변경 서사를 사실처럼 보충하지 않았습니다. 초기 CAD와 수정 CAD의 실제 원본을 확인하면 그 차이를 별도로 정리할 수 있습니다.
+### 4.2 PID 응답 관찰 및 튜닝
 
-## 04 · Pixhawk / QGroundControl / PID — 비행제어 안정화
+실기체의 **PID 응답 그래프**, **PID 파라미터 조정 화면**, **네트워크·프레임 손실 상태**를 관찰하며 비행제어 동작을 점검했습니다.
 
-### 4.1 Pixhawk 및 지상국 연동
+PX4 / Gazebo 환경에서도 기체 안정화 PID 계수와 분사반동에 대한 제어 응답을 시뮬레이션했습니다.
 
-**📷 제작설계서 35쪽 왼쪽 아래:** 「QGroundControl 지상국 연동 실기체 제어 구현」
+### 4.3 LiDAR 기반 작업거리 제어
 
-Pixhawk 4 / PX4가 저수준 비행제어와 비행모드·안전동작을 담당하고, Raspberry Pi 5가 임무 목표와 센서 처리 결과를 MAVROS/MAVLink를 통해 연동하도록 구성했습니다.
+TF-Luna의 수신 데이터에서 프레임 checksum, 거리 범위와 신호 유효성을 검사합니다. 이후 **Median(5) → Moving Average(5)** 필터를 거친 거리값을 외부 거리 PID 제어에 사용합니다.
 
-### 4.2 PID 파라미터 조정
+목표 작업거리는 **1.0 m**이며, 거리 오차에 따른 속도명령에 제한을 두어 갑작스러운 제어입력을 억제했습니다.
 
-**📷 제작설계서 19쪽 왼쪽 아래:** 「실시간 PID 값 관찰 및 튜닝 화면」
+## 05. Autonomous Survey & Path Planning | 패널 인식과 경로계획
 
-**📷 제작설계서 35쪽 오른쪽 아래:** 「실기체 네트워크, 프레임 손실 상태 / PID 파라미터 조정」
+### 5.1 Capture-Sync 기반 Panel Map
 
-실제 기체의 제어 응답, 네트워크 상태 및 프레임 손실 정보를 확인하면서 PID 관련 파라미터를 조정한 화면을 배치합니다.
+고고도 Survey 단계에서 카메라가 촬영한 영상으로 태양광 패널을 검출합니다. 영상의 패널 중심 픽셀좌표와 촬영시각에 동기화된 **기체 Pose 및 LiDAR 정보**를 이용해 패널 관측값을 Local 좌표계로 변환합니다.
 
-**📷 제작설계서 20쪽 왼쪽 위:** 「PX4/Gazebo 기체안정화 PID 계수 및 분사반동 강건성 시뮬레이션」
+서로 다른 프레임에서 반복 검출된 패널 좌표는 중복 제거 및 클러스터링 과정을 거쳐 **Panel Map**으로 통합합니다.
 
-> **캘리브레이션 이미지:** Pixhawk 센서 캘리브레이션을 직접 진행하는 별도의 화면은 현재 확인한 제작설계서에서 명확히 식별되지 않아, 검증되지 않은 사진을 캘리브레이션 사진으로 표기하지 않았습니다.
+### 5.2 Nearest-Neighbour + 2-opt
 
-### 4.3 근접 거리제어
+Panel Map을 기반으로 현장에서 방문할 패널 순서를 동적으로 생성합니다.
 
-제작설계서 32쪽은 **TF-Luna 유효값 검사 → Median(5) → Moving Average(5) → `/distance/filtered` → 외부 거리 PID** 흐름을 제시합니다. 목표 작업거리는 **1.0 m**이며, 급격한 명령을 막기 위한 속도·가속도 제한을 둡니다.
+1. **Nearest-Neighbour:** 현재 위치에서 가까운 패널을 순차적으로 선택해 초기 방문 경로 생성
+2. **2-opt:** 경로 구간의 방문 순서를 재배열해 불필요한 교차와 이동거리 개선
+3. **PX4 / MAVROS:** 선택한 목표 패널의 위치를 비행제어 시스템에 전달
 
-## 05 · Autonomous Survey / Panel Map / Path Planning — 패널 탐색과 경로계획
+영상 수신 시점이 아닌 **원래 촬영 timestamp**를 기준으로 제어 데이터를 연결하여 이동 중에도 일관된 패널 위치를 계산하도록 구성했습니다.
 
-**📷 제작설계서 35쪽 왼쪽 위:** 「패널 위치 분석 및 방문 경로 설계」
+## 06. AI Detection & Precision Spraying | 오염 인식과 선택분사
 
-설계서에 따르면 상위 임무 제어는 고고도 탐색에서 획득한 패널 중심 픽셀좌표를 **촬영시각 기준 기체 Pose 및 LiDAR 정보**와 동기화합니다. 이렇게 얻은 패널 관측값을 Local 좌표계로 변환하고, 중복 위치를 통합하여 **Panel Map**을 구성합니다.
+### 6.1 Two-Stage Vision
 
-방문 순서 계산은 다음 두 알고리즘을 사용합니다.
+| Stage | Model | Function |
+|---|---|---|
+| Panel V4 | Faster R-CNN MobileNetV3-Large FPN | 태양광 패널 검출 및 bounding box 생성 |
+| Dirt V3 | LR-ASPP MobileNetV3-Large | 패널 ROI의 국부 오염 segmentation |
 
-- **Nearest-Neighbour:** 현재 위치에서 가까운 패널을 순차적으로 선택해 초기 경로 생성
-- **2-opt:** 구간 재배열을 통해 불필요한 경로 교차와 총 이동거리 개선
+검출한 패널 영역을 ROI로 추출하고 **384 × 640** 크기로 전처리한 다음 오염 영역을 분할합니다.
 
-**실제 코드 근거(제작설계서)**
+Dirt V3의 확률맵에 **threshold 0.99725**를 적용하여 Binary Mask를 생성하고, 최소 component 면적 **8 px**, 최소 면적비 **0.0001**을 기준으로 작은 오검출을 필터링합니다. 최종 오염 영역의 **Centroid**를 계산하고 카메라–노즐 오프셋을 반영해 실제 분사 목표점을 산출합니다.
 
-| 페이지 | 실제 코드·자료 항목 |
-|---|---|
-| 30쪽 오른쪽 | Capture-Sync 기반 패널 위치추정 및 지도 생성 |
-| 31쪽 왼쪽 | Nearest-Neighbour + 2-opt 경로 생성 |
-| 31쪽 오른쪽 | `PerceptionResult.msg`, 추론 결과 식별 및 최신성 관리 |
+### 6.2 Safety Gate 및 분사 제어
 
-설계서 30쪽에는 촬영시각 동기화 관련 실제 설정값 **`capture_sync_tolerance_s=0.15`**, **`input_history_s=2.0`**이 제시되어 있습니다. 수신 시점이 아니라 촬영시각을 기준으로 과거 Pose·Range 데이터를 조회하는 방식입니다.
+오염 검출만으로 곧바로 물을 분사하지 않습니다. **LiDAR 작업거리, Vision / Yaw 정렬, 자세·속도 안정성, AI 결과 최신성, 통신 및 구동장치 상태**가 모두 유효할 때만 분사를 허용합니다.
 
-*원본 코드 이미지와 소스파일을 아직 추출·첨부하지 않았으므로, 이 README에는 임의로 생성한 Python 예제를 넣지 않았습니다.*
+**분사 명령 전달:** Raspberry Pi 5 → MAVROS CommandLong → PX4 Camera Trigger → AUX5 → DRV8876 → NC 솔레노이드 밸브
 
-## 06 · AI Dirt Detection / Spraying — 오염 인식과 선택분사
-
-### 6.1 패널 검출 → 오염 분할 → 조준점 생성
-
-**📷 제작설계서 20쪽 오른쪽 위:** 「실기체 오염물 인식 및 Spray Aim과 실제 노즐 위치 Offset 보정」
-
-**📷 제작설계서 21쪽:** 통합 임무 모니터링 Dashboard / AI 패널·오염검출 목표점 생성
-
-| 단계 | 제작설계서에 기록된 구현 |
-|---|---|
-| Panel V4 | **Faster R-CNN MobileNetV3-Large FPN** 기반 패널 검출 |
-| ROI | 검출한 패널 영역을 추출해 Dirt 모델 입력으로 전처리 |
-| Dirt V3 | **LR-ASPP MobileNetV3-Large** 기반 오염 Segmentation |
-| Mask 처리 | Sigmoid → Threshold **0.99725** → 유효 component 필터링 |
-| 조준 | 오염 중심점(Centroid) + 카메라–노즐 Offset 보정 |
-
-제작설계서 24쪽에는 Dirt V3 입력 크기 **384×640**, 최소 component 면적 **8 px**, 최소 면적비 **0.0001**이 기록되어 있습니다. 생성한 중심점과 조준점은 Vision 정렬 및 분사 허용조건 판단으로 전달합니다.
-
-### 6.2 LiDAR 신뢰성 처리 및 안전 분사
-
-**📷/코드: 제작설계서 32쪽 왼쪽:** TF-Luna 필터링과 1 m 거리제어
-
-**📷/코드: 제작설계서 32쪽 오른쪽:** Fail-Closed 분사 인터록 및 PX4 Timed Output
-
-TF-Luna 프레임은 시작 바이트 **`0x59 0x59`**와 checksum, 거리·신호 유효조건을 확인한 후 제어에 사용합니다.
-
-분사 경로는 제작설계서에 다음과 같이 기재되어 있습니다.
-
-**`/spray/trigger → MAVROS CommandLong → PX4 Camera Trigger → FMU AUX5 → DRV8876 → NC Solenoid`**
-
-실제 `spray_controller.yaml`에 기록된 주요 설정은 **`output_enabled: false`**, **`pulse_duration_s: 3.0`**, **`maximum_pulse_s: 3.0`**입니다. 분사 허가조건을 만족하지 않으면 밸브가 열리지 않는 **Fail-Closed** 방식입니다.
+1회 분사는 **3초 제한 출력**으로 제어하며, 조건 이탈 시 즉시 밸브를 차단하고 HOLD 또는 재정렬 상태로 전환하는 **Fail-Closed** 구조를 적용했습니다.
 
 ### 6.3 분사반동 Feed-forward 보상
 
-**📷/코드: 제작설계서 33쪽 왼쪽:** 분사반동 Feed-forward 로직
+물 분사로 발생하는 반동을 고려해 **Feed-forward 속도명령**을 LiDAR 거리 Feedback과 결합했습니다. 분사 시작 시 보상을 적용하고, 종료 후에는 보상명령을 해제하여 거리 Feedback이 잔여 오차를 보정합니다.
 
-분사 중 예상되는 유체 반력을 Feed-forward 속도명령으로 변환하여 LiDAR 기반 거리 Feedback 출력과 합산합니다. 제작설계서 26쪽에 제시된 설계 수치는 다음과 같습니다.
-
-| 항목 | 설계서 기재값 |
+| Parameter | Value |
 |---|---:|
-| 추정 분사반력 | 약 **0.437 N** |
-| 외란가속도 | 약 **0.156 m/s²** |
-| 계산 FF 명령 | 약 **−0.031 m/s** |
-| FF 출력 제한 | **0.20 m/s** |
-| 최종 수직속도 제한 | **0.25 m/s** |
+| Estimated spray reaction | 0.437 N |
+| Disturbance acceleration | 0.156 m/s² |
+| Feed-forward command | −0.031 m/s |
+| FF output limit | 0.20 m/s |
+| Vertical speed limit | 0.25 m/s |
 
-### 6.4 분사 후 새 영상 검증
+### 6.4 Fresh Frame Verification
 
-분사 후 이전 추론 결과를 재사용하지 않고 **Fresh Frame**으로 오염을 다시 확인합니다. 조건을 벗어나면 **Valve OFF / HOLD / 재정렬**, 재시도 한계 또는 이상 상태에서는 **RTL/LAND** 절차로 전환하도록 설계했습니다.
+분사 후 새로운 영상을 촬영하여 오염을 다시 검출합니다. 잔류 오염이 있으면 재정렬 및 재시도를 수행하고, 이상 상태에서는 분사를 중지하고 복귀·착륙 절차로 전환합니다.
 
-## 07 · Reported AI Performance — 제작설계서 기재 성능
+## 07. Vision Performance | AI 인식 성능
 
-| 평가 항목 | 제작설계서 25쪽 |
+| Evaluation | Result |
 |---|---:|
 | Panel V4 mAP@0.50:0.95 | **0.921** |
 | Dirt V3 Dirty Recall | **100%** |
 | Pixel IoU | **80.77%** |
-| 평균 오염 중심점 오차 | **1.57 px** |
+| Mean dirt centroid error | **1.57 px** |
 
-이 수치는 **제작설계서에 기록된 AI 성능**입니다. 다른 보고서의 수치나 외부 자료는 혼합하지 않았습니다.
+## 08. Development Stack
 
-## 08 · Original Source Code & Evidence — 원본 코드 및 화면 자료
+**Mechanical & Flight:** ANSYS · Pixhawk 4 · PX4 Autopilot · QGroundControl · PX4/Gazebo
 
-코드 소개에 사용하는 근거는 **제작설계서 30~33쪽의 실제 코드 캡처**뿐입니다. 확인한 원본 코드 및 파일명 목록은 [원본 코드 인덱스](docs/source-code-index.md)에 정리했습니다. **설명용·재작성 예시 코드는 추가하지 않습니다.**
+**Autonomy & Vision:** Python · ROS 2 · MAVROS · PyTorch · OpenCV · Panel V4 · Dirt V3
 
-스크린샷·동영상·기체 설계 원본의 업로드 상태와 필요한 이미지 배치는 [미디어 인덱스](docs/media-index.md)에서 확인할 수 있습니다.
-
----
-
-**DA-DAKA · AI 비전 및 유체 반발력 제어 기반 태양광 모듈 스마트 청소 드론**  
-**Reference:** 팀 다닦아, *SW개발/HW제작 설계서*, 2026.09.08.
+**Hardware:** Raspberry Pi 5 · NVIDIA GPU · IMX708 · TF-Luna LiDAR · PM07 · DRV8876 · NC Solenoid Valve

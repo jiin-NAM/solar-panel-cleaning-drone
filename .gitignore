@@ -1,0 +1,20 @@
+# Reports and private project documents
+**/reports/
+**/report/
+**/*보고서*
+**/*[Rr]eport*
+
+# ANSYS files and simulation results
+**/*[Aa][Nn][Ss][Yy][Ss]*
+*.wbpj
+*.wbpz
+*.mechdat
+*.mechdb
+*.rst
+*.rth
+*.cdb
+*.full
+
+# OS metadata
+.DS_Store
+Thumbs.db
